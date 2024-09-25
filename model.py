@@ -105,10 +105,16 @@ class Transformer(torch.nn.Module):
         self.blocks = torch.nn.ModuleList([TransformerBlock(config) for _ in range(config.layers)])
         self.register_buffer('position', create_position(config.hidden_dimension, config.heads, config.sequence_length))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def predict(self, x: torch.Tensor) -> torch.Tensor:
         x = self.embed(x)
 
         for block in self.blocks:
             x = block(x, self.position)
         
         return x @ self.embed.weight.T
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+
+        logits = self.predict(x[..., : -1])
+        
+        return torch.nn.functional.nll_loss(logits.view(-1, logits.size(-1)), x[..., 1:].flatten())
